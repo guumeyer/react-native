@@ -87,6 +87,11 @@ aliases:
     |
       npm install --no-package-lock --no-spin --no-progress
 
+  - &install-node 
+    |
+      curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
+      sudo apt-get install -y nodejs
+
   - &run-node-tests
     | 
       npm test -- --maxWorkers=2
@@ -213,6 +218,7 @@ jobs:
       - save-cache: *save-node-cache
       - run: ./scripts/process-podspecs.sh
       
+  # Tests website
   test-website:
     <<: *defaults
     docker:
@@ -233,6 +239,7 @@ jobs:
           name: Test Build Static Website
           command: cd website && node ./server/generate.js
 
+  # Deploys website 
   deploy-website:
     <<: *defaults
     docker:
@@ -255,6 +262,30 @@ jobs:
               cd website && GIT_USER=reactjs-bot npm run gh-pages
             else
               echo "Skipping deploy."
+            fi
+
+  # Publishes new version onto npm
+  publish-npm:
+    <<: *defaults
+    docker:
+      - image: circleci/android:api-26-alpha
+    steps:
+      - checkout
+      - run: *install-node
+      - restore-cache: *restore-node-cache
+      - run: *install-node-dependencies
+      - save-cache: *save-node-cache
+      - run:
+          name: Publish React Native Package
+          command: |
+            if [ -z "$CIRCLE_PULL_REQUEST" ]; then
+              echo "//registry.npmjs.org/:_authToken=${CIRCLE_NPM_TOKEN}" > ~/.npmrc
+              git config --global user.email "reactjs-bot@users.noreply.github.com"
+              git config --global user.name "Website Deployment Script"
+              echo "machine github.com login reactjs-bot password $GITHUB_TOKEN" > ~/.netrc
+              node ./scripts/publish-npm.js
+            else
+              echo "Skipping deploy."            
             fi
 
   # Build JavaScript bundle for Android tests
@@ -339,11 +370,7 @@ jobs:
             cd ~/buck && ant
             buck --version
       - save-cache: *save-cache-buck
-      - run:
-          name: Install Node
-          command: |
-            curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
-            sudo apt-get install -y nodejs
+      - run: *install-node
       - restore-cache: *restore-node-cache
       - run: *install-node-dependencies
       - save-cache: *save-node-cache
@@ -454,7 +481,6 @@ jobs:
               echo "Skipping dependency installation."            
             fi
       - save-cache: *save-cache-analysis
-# Run Danger      
       - run:
           name: Analyze Pull Request
           command: |
@@ -464,7 +490,6 @@ jobs:
               echo "Skipping pull request analysis."            
             fi
           when: always
-# Run eslint          
       - run:
           name: Analyze Code
           command: |
@@ -472,26 +497,6 @@ jobs:
               cat <(echo eslint; npm run lint --silent -- --format=json; echo flow; npm run flow --silent -- check --json) | GITHUB_TOKEN="af6ef0d15709bc91d""06a6217a5a826a226fb57b7" CI_USER=$CIRCLE_PROJECT_USERNAME CI_REPO=$CIRCLE_PROJECT_REPONAME PULL_REQUEST_NUMBER=$CIRCLE_PR_NUMBER node bots/code-analysis-bot.js
             else
               echo "Skipping code analysis."            
-            fi
-
-  publish-npm:
-    <<: *defaults
-    docker:
-      - image: circleci/node:8
-    steps:
-      - checkout
-      - run: *install-node-dependencies      
-      - run:
-          name: Publish React Native Package
-          command: |
-            if [ -z "$CIRCLE_PULL_REQUEST" ]; then
-              echo "//registry.npmjs.org/:_authToken=${CIRCLE_NPM_TOKEN}" > ~/.npmrc
-              git config --global user.email "reactjs-bot@users.noreply.github.com"
-              git config --global user.name "Website Deployment Script"
-              echo "machine github.com login reactjs-bot password $GITHUB_TOKEN" > ~/.netrc
-              node ./scripts/publish-npm.js
-            else
-              echo "Skipping deploy."            
             fi
 
 # Workflows enables us to run multiple jobs in parallel
