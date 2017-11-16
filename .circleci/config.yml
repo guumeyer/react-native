@@ -343,7 +343,7 @@ jobs:
       - run: *install-node-dependencies
       - save-cache: *save-node-cache
       - restore-cache: *restore-cache-buck-downloads
-      - run: *install-android-app-dependencie
+      - run: *install-android-app-dependencies
       - save-cache: *save-cache-buck-downloads
 
       - run:
@@ -414,7 +414,7 @@ jobs:
       - run: *install-node-dependencies
       - save-cache: *save-node-cache
       - restore-cache: *restore-cache-buck-downloads
-      - run: *install-android-app-dependencie
+      - run: *install-android-app-dependencies
       - save-cache: *save-cache-buck-downloads
 
       - run:
